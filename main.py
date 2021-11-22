@@ -1,21 +1,36 @@
 from PIL import Image
 
 
+def print_move_line(X, Y, Z, F, E):
+    line = "G1 X" + str(X) + " Y" + str(Y) + " Z" + str(Z) + " F" + str(F) + " E" + str(E)
+    print_line(line)
+
+
+def print_line(line):
+    file.write(line + "\n")
+
+
 # Get the layers, and voxel dims
 numLayers = input("Enter the number of layers: ")
 xVoxelDim = float(input("Enter the Voxel Dimension in the X axis: "))
 yVoxelDim = float(input("Enter the Voxel Dimension in the Y axis: "))
 
-# Create the G-Code file to write to
+# Declare some constants (for now)
+zVoxelDim = float(0.5)
+fMax = float(300)
+eMax = float(1.5)
+
+# Open the file to start writing
 file = open("output.gcode", "w")
 
 # Write Starting G-Code
-line = "G91\n"
-file.write(line)
+print_line("G91")
 
 # Load in the base layer to find the pixel dimensions
 image = Image.open('0.bmp')
 xPx, yPx = image.size
+xCurrent = -1
+yCurrent = -1
 
 # For each layer
 for layer in range(int(numLayers)):
@@ -25,41 +40,49 @@ for layer in range(int(numLayers)):
     # For each row
     for y in range(yPx):
 
-        # Clear out some line tracking variables
+        # Clear out some line tracking variables (Reading rows backwards)
         segmentCount = int(0)
-        rate, previousExtrude, unused = image.getpixel((0, yPx - y - 1))
+        previousRate, previousExtrude, previousUnused = image.getpixel((0, yPx - y - 1))
+
+        # Scale previousRate and previousExtrude to actual units
+        previousRate = (255 - previousRate) * fMax / 255
+        previousExtrude = (255 - previousExtrude) * eMax / 255
+
         # For each pixel
-        for x in range (xPx):
-            # Extract the colors of the pixel
+        for x in range(xPx):
+            # Extract the colors of the pixel (Read rows backwards)
             rate, extrude, unused = image.getpixel((x, yPx - y - 1))
 
-            # Check if our extrude value has changed for this voxel
-            if extrude != previousExtrude:
-                # If we're here, we're starting a new segment
+            # Scale previousRate and previousExtrude to actual units
+            previousRate = (255 - previousRate) * fMax / 255
+            previousExtrude = (255 - previousExtrude) * eMax / 255
 
-                # First we need to write the line that just ended
-                line = "G1 X" + str(segmentCount * xVoxelDim) + " Y0 E" + str((255-previousExtrude)/255 * xVoxelDim *
-                                                                              segmentCount) + "\n"
-                file.write(line)
+            # Check to see if this is the start of the print
+            if rate != 0 and xCurrent == -1:
+                xCurrent = x
+                yCurrent = y
+                print_move_line(xCurrent * xVoxelDim, yCurrent * yVoxelDim, layer * zVoxelDim, fMax, 0)
 
-                # Now reset the segment count for a new line
-                segmentCount = 1
-            else:
-                segmentCount += 1
+                # Turn on the Welder
 
-            # Update Previous Extrusion Value
-            previousExtrude = extrude
+                # Record Previous Rates, Extrusions, and unused
+                previousRate = rate
+                previousExtrude = extrude
+                previousUnused = unused
 
-        # Write the last remaining segment
-        line = "G1 X" + str(int(segmentCount * xVoxelDim)) + " Y0 E" + str((255-previousExtrude)/255 * xVoxelDim *
-                                                                           segmentCount) + "\n"
-        file.write(line)
+            # Once one of the variables has changed, we're on a new segment
+            if rate != previousRate or extrude != previousExtrude or unused != previousUnused:
+                # Create the new line
+                xTravel = (x - xCurrent - 1) * xVoxelDim
+                eTravel = xTravel * previousExtrude
+                print_move_line(xTravel, 0, 0, previousRate, eTravel)
 
-        # And Move to the next Line unless it was the last line
-        if y < yPx - 1:
-            line = "G1 Y" + str(yVoxelDim * 2) + "\n" +\
-                   "G1 X-" + str(xPx * xVoxelDim) + "\n" +\
-                   "G1 Y-" + str(yVoxelDim) + "\n"
-            file.write(line)
+            # Detect if we're at the edge of the row
+            if x == xPx:
+                # If there was no extrusion
+                # If there was extrusion
 
+
+
+# Close the file we wrote to
 file.close()
