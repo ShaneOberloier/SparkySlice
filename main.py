@@ -31,6 +31,7 @@ image = Image.open('0.bmp')
 xPx, yPx = image.size
 xCurrent = -1
 yCurrent = -1
+zCurrent = -1
 
 # For each layer
 for layer in range(int(numLayers)):
@@ -61,6 +62,7 @@ for layer in range(int(numLayers)):
             if rate != 0 and xCurrent == -1:
                 xCurrent = x
                 yCurrent = y
+                zCurrent = layer
                 print_move_line(xCurrent * xVoxelDim, yCurrent * yVoxelDim, layer * zVoxelDim, fMax, 0)
 
                 # Turn on the Welder
@@ -69,6 +71,15 @@ for layer in range(int(numLayers)):
                 previousRate = rate
                 previousExtrude = extrude
                 previousUnused = unused
+            # Now check if it's a new layer
+            elif rate != 0 and layer != zCurrent:
+                xTravel = (x - xCurrent) * xVoxelDim
+                yTravel = (y - yCurrent) * yVoxelDim
+                zTravel = (layer - zCurrent) * zVoxelDim
+                print_move_line(xTravel, yTravel, zTravel, fMax, 0)
+                xCurrent = x
+                yCurrent = y
+                zCurrent = layer
             # Otherwise, check if this is a new row
             elif rate != 0 and y != yCurrent:
                 xTravel = (x - xCurrent) * xVoxelDim
@@ -76,6 +87,7 @@ for layer in range(int(numLayers)):
                 print_move_line(xTravel, yTravel, 0, fMax, 0)
                 xCurrent = x
                 yCurrent = y
+                zCurrent = layer
 
                 # Record Previous Rates, Extrusions, and unused
                 previousRate = rate
@@ -90,6 +102,7 @@ for layer in range(int(numLayers)):
                 print_move_line(xTravel, 0, 0, previousRate, eTravel)
                 xCurrent = x
                 yCurrent = y
+                zCurrent = layer
 
                 # Record Previous Rates, Extrusions, and unused
                 previousRate = rate
@@ -106,6 +119,7 @@ for layer in range(int(numLayers)):
                     print_move_line(xTravel, 0, 0, previousRate, eTravel)
                     xCurrent = x + 1
                     yCurrent = y
+                    zCurrent = layer
 
 
 # Close the file we wrote to
