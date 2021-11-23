@@ -54,8 +54,8 @@ for layer in range(int(numLayers)):
             rate, extrude, unused = image.getpixel((x, yPx - y - 1))
 
             # Scale previousRate and previousExtrude to actual units
-            previousRate = (255 - previousRate) * fMax / 255
-            previousExtrude = (255 - previousExtrude) * eMax / 255
+            rate = (255 - rate) * fMax / 255
+            extrude = (255 - extrude) * eMax / 255
 
             # Check to see if this is the start of the print
             if rate != 0 and xCurrent == -1:
@@ -69,19 +69,43 @@ for layer in range(int(numLayers)):
                 previousRate = rate
                 previousExtrude = extrude
                 previousUnused = unused
+            # Otherwise, check if this is a new row
+            elif rate != 0 and y != yCurrent:
+                xTravel = (x - xCurrent) * xVoxelDim
+                yTravel = (y - yCurrent) * yVoxelDim
+                print_move_line(xTravel, yTravel, 0, fMax, 0)
+                xCurrent = x
+                yCurrent = y
+
+                # Record Previous Rates, Extrusions, and unused
+                previousRate = rate
+                previousExtrude = extrude
+                previousUnused = unused
 
             # Once one of the variables has changed, we're on a new segment
             if rate != previousRate or extrude != previousExtrude or unused != previousUnused:
                 # Create the new line
-                xTravel = (x - xCurrent - 1) * xVoxelDim
+                xTravel = (x - xCurrent) * xVoxelDim
                 eTravel = xTravel * previousExtrude
                 print_move_line(xTravel, 0, 0, previousRate, eTravel)
+                xCurrent = x
+                yCurrent = y
+
+                # Record Previous Rates, Extrusions, and unused
+                previousRate = rate
+                previousExtrude = extrude
+                previousUnused = unused
 
             # Detect if we're at the edge of the row
-            if x == xPx:
-                # If there was no extrusion
-                # If there was extrusion
-
+            if x == xPx - 1:
+                # If there was no rate, we do nothing
+                # If there was rate
+                if rate != 0:
+                    xTravel = (x - xCurrent + 1) * xVoxelDim
+                    eTravel = xTravel * previousExtrude
+                    print_move_line(xTravel, 0, 0, previousRate, eTravel)
+                    xCurrent = x + 1
+                    yCurrent = y
 
 
 # Close the file we wrote to
